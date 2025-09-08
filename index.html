@@ -213,7 +213,7 @@ main.panel .section:has(> #log){ grid-area:log; border-top:0; padding-top:0; }
         <canvas id="c_profit" style="display:none"></canvas>
       </div>
 
-      <div class="logwrap"><div class="log" id="log">Ready. In the left panel <-Choose inputs and submit.</div></div>
+      <div class="logwrap"><div class="log" id="log">Ready. In the left panel <- Choose inputs and submit.</div></div>
     </main>
   </div>
 
@@ -563,7 +563,7 @@ function setupChartTabs(){
 
 // ---------- Init ----------
 function init(){
-  renderFeatureCheckboxes('a'); renderFeatureCheckboxes('b'); updatePills(); log('Ready. Choose inputs and submit.');
+  renderFeatureCheckboxes('a'); renderFeatureCheckboxes('b'); updatePills(); log('Ready. In left panel <- Choose inputs and submit.');
   els('.tab').forEach(t=>t.addEventListener('click',()=>switchTab(t.dataset.tab)));
   el('#a_submit').addEventListener('click', submitRound);
   el('#a_react').addEventListener('click', revealReaction);
