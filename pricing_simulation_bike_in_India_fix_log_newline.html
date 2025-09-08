@@ -1,0 +1,593 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Pricing Strategies Simulation – Bike India</title>
+<style>
+  :root{ --bg:#0f172a; --bg2:#111827; --card:#0b1220; --ink:#e5f2ff; --muted:#9fb7d0;
+         --accent:#22d3ee; --accent-2:#a78bfa; --border:#1e2b47; --shadow:0 12px 30px rgba(0,0,0,.35); }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;background:linear-gradient(180deg,var(--bg) 0%, var(--bg2) 100%);color:var(--ink)}
+  header{padding:18px 20px;border-bottom:1px solid var(--border);background:linear-gradient(90deg,#0b1220 0%, #101a33 100%);position:sticky;top:0;z-index:5}
+  header h1{margin:0;font-size:18px}
+  .container{display:grid;grid-template-columns:360px 1fr;gap:16px;padding:16px}
+  .panel{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:14px;box-shadow:var(--shadow)}
+  .tabs{display:flex;gap:8px;margin-bottom:12px}
+  .tab{flex:1;text-align:center;padding:10px 12px;border:1px solid var(--border);border-radius:12px;background:#0e1930;color:#cfe3ff;cursor:pointer}
+  .tab.active{outline:2px solid var(--accent);background:#0a1529}
+  .tab.locked{opacity:.8}
+  .section{margin:12px 0;border-top:1px dashed #243252;padding-top:12px}
+  label{display:block;margin:8px 0 4px;color:#d9ecff;font-size:13px}
+  input[type="number"], select{width:100%;padding:10px 12px;border-radius:12px;border:1px solid #223354;background:#0b162c;color:var(--ink)}
+  input[type="range"]{width:100%}
+  .row{display:flex;gap:10px;align-items:center}
+  .row > *{flex:1}
+  .radio-row{display:flex;gap:10px;flex-wrap:wrap}
+  .radio-row label{display:flex;gap:8px;align-items:center;background:#0b162c;border:1px solid #223354;padding:10px 12px;border-radius:12px;cursor:pointer}
+  .btn{display:inline-block;padding:10px 12px;border-radius:12px;border:1px solid #1e2b47;background:linear-gradient(180deg,#0e1930,#0b162c);color:#d1e6ff;cursor:pointer}
+  .btn.primary{border-color:#235070;outline:2px solid #164b6c}
+  .kpis{display:grid;grid-template-columns:repeat(5,1fr);gap:10px}
+  .kpi{background:linear-gradient(180deg,#0b162c,#0a1427);border:1px solid #203151;padding:12px;border-radius:14px}
+  .kpi h3{margin:0 0 6px 0;font-size:12px;color:#9fb7d0;font-weight:600}
+  .kpi p{margin:0;font-size:18px;font-weight:800}
+  .chart-tabs{display:flex;gap:8px;margin-top:12px}
+  .ctab{flex:1;padding:10px 12px;border-radius:10px;border:1px solid #1e2b47;background:#0e1930;color:#cfe3ff;cursor:pointer}
+  .ctab.active{outline:2px solid #22d3ee;background:#0a1529}
+  #chartwrap{margin-top:10px}
+  canvas{width:100%;height:280px;background:linear-gradient(180deg,#081323,#0a1529);border:1px solid #1e2b47;border-radius:12px}
+  .log{background:#0a1529;border:1px solid #1e2b47;border-radius:12px;padding:12px;min-height:92px;white-space:pre-wrap}
+  .pill{display:inline-block;padding:4px 10px;border-radius:999px;border:1px solid #224;background:#0b162c;font-size:12px;color:#d1e6ff}
+  footer{padding:10px 16px;color:#8ba3c7;font-size:12px}
+  @keyframes shake{0%,100%{transform:translateX(0)}25%{transform:translateX(-4px)}75%{transform:translateX(4px)}}
+  .shake{animation:shake .3s linear 1}
+  #tt{position:fixed;pointer-events:none;background:#0b162c;border:1px solid #224;padding:6px 8px;border-radius:10px;color:#d1e6ff;font-size:12px;z-index:10;display:none;box-shadow:0 6px 16px rgba(0,0,0,.35)}
+/* Right pane as a grid */
+main.panel{
+  display:grid;
+  grid-template-columns: 1fr 1fr;  /* KPIs wide, log narrow */
+  grid-template-areas:
+    "kpis log"
+    "tabs tabs"
+    "chart chart";
+  gap:10px;
+}
+
+/* Headings injected before the content */
+#controls::before{
+  content:"Input panel";
+  display:block;
+  font-weight:800;          /* bold */
+  font-size:16px;
+  color:#e5f2ff;            /* white/ink */
+  letter-spacing:.3px;
+  margin:0 0 8px 0;
+}
+
+
+/* ---------- Right pane layout to match mock ---------- */
+main.panel{
+  display:grid;
+  grid-template-columns: 1fr;         /* single column */
+  grid-template-areas:
+    "log"       /* Row 1 */
+    "kpis"      /* Row 2 */
+    "tabs"      /* Row 3 */
+    "chart";    /* Row 4 */
+  gap:10px;
+}
+
+/* Map blocks to grid areas */
+.kpis{ grid-area:kpis; }
+#chartwrap{ grid-area:chart; }
+
+/* If you changed the wrapper to .logwrap (recommended) */
+.logwrap{ grid-area:log; border-top:0; padding-top:0; }
+
+/* If you DIDN'T change HTML, auto-target the existing wrapper using :has() */
+main.panel .section:has(> #log){ grid-area:log; border-top:0; padding-top:0; }
+
+/* Row 1 text (log) — yellow + bold */
+.log{ color:#fde047; font-weight:800; }
+
+/* Make the log box align nicely with the KPI row */
+.logwrap, main.panel .section:has(> #log){
+  align-self:stretch;
+  display:flex;
+  align-items:center;
+}
+
+/* Row 3: reduce TABS width to half (left-aligned) */
+.chart-tabs{
+  grid-area:tabs;
+  width:50%;
+  min-width:520px;       /* keep buttons readable */
+  justify-self:start;    /* left align within the grid row */
+}
+
+/* Keep full width on small screens */
+@media (max-width:1100px){
+  main.panel{
+    grid-template-columns:1fr;
+    grid-template-areas:
+      "kpis"
+      "log"
+      "tabs"
+      "chart";
+  }
+  .chart-tabs{ width:100%; min-width:0; }
+}
+
+
+}
+</style>
+</head>
+<body>
+  <header><h1>Pricing Strategies Simulation: Bike India</h1></header>
+  <div class="container">
+    <aside class="panel" id="controls">
+      <div class="tabs">
+        <div class="tab active" data-tab="modeA">Mode A · The Pricing Dial</div>
+        <div class="tab locked" data-tab="modeB" id="tabB">🔒 Mode B · Dynamic Sprint</div>
+      </div>
+
+      <div id="modeA" class="mode">
+        <div class="section">
+          <div class="row">
+            <div><label>Price (₹)</label>
+              <input id="a_price" type="number" min="80000" max="160000" step="500" value="120000" /></div>
+            <div><label>Promo Discount (%)</label>
+              <input id="a_discount" type="number" min="0" max="20" step="1" value="0" /></div>
+          </div>
+          <label>Strategy</label>
+          <div class="radio-row">
+            <label><input type="radio" name="a_strategy" value="cost" /> Cost-based</label>
+            <label><input type="radio" name="a_strategy" value="competition" checked /> Competition-based</label>
+            <label><input type="radio" name="a_strategy" value="value" /> Value-based</label>
+          </div>
+          <label>Freemium Feature Add-ons</label>
+          <div id="a_features" class="radio-row"></div>
+        </div>
+        <div class="section">
+          <div class="row">
+            <button class="btn primary" id="a_submit">Submit Round</button>
+            <button class="btn" id="a_react">Reveal Competitor Reaction</button>
+            <button class="btn" id="a_event">Add Market Event</button>
+          </div>
+          <div style="margin-top:8px" class="row">
+            <span class="pill" id="a_roundpill">Round: 1 / 3</span>
+            <span class="pill" id="a_compPrice">Competitor ₹–</span>
+            <span class="pill" id="a_eventpill">No event</span>
+            <button class="btn" id="a_reset">Reset</button>
+          </div>
+        </div>
+      </div>
+
+      <div id="modeB" class="mode" style="display:none">
+        <div class="section">
+          <label>Price (₹) — live</label>
+          <input id="b_price" type="range" min="80000" max="160000" step="1000" value="120000" />
+          <div class="row"><div id="b_price_val" class="pill">₹1,20,000</div><div id="b_hint" class="pill">Objective: Profit</div></div>
+        </div>
+        <div class="section">
+          <div class="row">
+            <div><label>Promo Discount (%)</label><input id="b_discount" type="number" min="0" max="20" step="1" value="0" /></div>
+            <div><label>Objective</label>
+              <select id="b_objective">
+                <option value="profit" selected>Max Profit</option>
+                <option value="revenue">Max Revenue</option>
+                <option value="volume">Max Volume</option>
+                <option value="positioning">Max Positioning</option>
+              </select>
+            </div>
+          </div>
+          <label>Freemium Feature Add-ons</label>
+          <div id="b_features" class="radio-row"></div>
+          <div style="margin-top:8px" class="row">
+            <button class="btn" id="b_suggest">Suggest Optimal Price</button>
+            <button class="btn" id="b_reset">Reset</button>
+          </div>
+        </div>
+      </div>
+    </aside>
+
+    <main class="panel">
+      <div class="kpis">
+        <div class="kpi"><h3>Units</h3><p id="k_units">–</p></div>
+        <div class="kpi"><h3>Revenue</h3><p id="k_revenue">–</p></div>
+        <div class="kpi"><h3>Profit</h3><p id="k_profit">–</p></div>
+        <div class="kpi"><h3>Share</h3><p id="k_share">–</p></div>
+        <div class="kpi"><h3>Positioning</h3><p id="k_pos">–</p></div>
+      </div>
+
+      <!-- Chart Tabs -->
+      <div class="chart-tabs">
+        <button class="ctab active" data-target="c_demand">Demand vs Price</button>
+        <button class="ctab" data-target="c_revenue">Revenue vs Price</button>
+        <button class="ctab" data-target="c_profit">Profit vs Price</button>
+      </div>
+
+      <div id="chartwrap">
+        <canvas id="c_demand"></canvas>
+        <canvas id="c_revenue" style="display:none"></canvas>
+        <canvas id="c_profit" style="display:none"></canvas>
+      </div>
+
+      <div class="logwrap"><div class="log" id="log">Ready. Choose inputs and submit.</div></div>
+    </main>
+  </div>
+
+  <div id="tt"></div>
+  <footer>© Dr. Pravat, GIM, Goa | Students' Version | Contact for TN </footer>
+
+<script>
+// ---------- Utils ----------
+function debounce(fn, wait=60){ let t=null; return (...a)=>{ clearTimeout(t); t=setTimeout(()=>fn(...a), wait); }; }
+const CFG={rounds:3,
+  base:{D0:20000,anchorPrice:120000,elasticity:1.6,baseCost:95000,fixedCost:25000000},
+  wtp:{min:100000,max:150000,alphaLow:0.4,alphaHigh:0.6},
+  promo:{maxDiscount:0.2,beta:1.2},
+  features:{items:[
+      {id:"fastCharge",label:"Fast charging",score:0.25,addonCost:800},
+      {id:"connectApp",label:"App connectivity",score:0.20,addonCost:500},
+      {id:"abs",label:"ABS braking",score:0.30,addonCost:1200}
+    ],featureLift:0.25,upsell:{enabled:true,attachRate:0.2,arpu:3000}},
+  competitor:{price:120000,floor:105000,retaliation:{undercutPct:0.06,prob:0.8,cutPct:0.07},raiseProb:0.5,raisePct:0.02},
+  share:{gamma:1.0,delta:0.3,zeta:0.3},
+  events:[{id:"battery_subsidy",label:"Govt subsidy (demand +10%)",type:"demand",multiplier:1.1},
+          {id:"raw_material_spike",label:"Raw material spike (+₹3k cost)",type:"cost",delta:3000}],
+  gating:{password:"pricing@GIM"}
+};
+const State={mode:'A',round:1,competitorPrice:CFG.competitor.price,event:null,rng:()=>Math.random(),lastResult:null,modeBUnlocked:false};
+const el=s=>document.querySelector(s), els=s=>Array.from(document.querySelectorAll(s));
+const clamp=(v,min,max)=>Math.max(min,Math.min(max,v));
+const fmtINR=n=>n===null||isNaN(n)?'–':new Intl.NumberFormat('en-IN',{maximumFractionDigits:0}).format(Math.round(n));
+function fmtINRCompact(n){const a=Math.abs(n); if(a>=1e7)return '₹'+(n/1e7).toFixed(2).replace(/\.00$/,'')+'Cr'; if(a>=1e5)return '₹'+(n/1e5).toFixed(2).replace(/\.00$/,'')+'L'; if(a>=1e3)return '₹'+Math.round(n/1e3)+'k'; return '₹'+fmtINR(n);}
+function fmtPriceCompact(n){return n>=100000?'₹'+(n/100000).toFixed(2).replace(/\.00$/,'')+'L':'₹'+Math.round(n/1000)*1000;}
+function log(msg){el('#log').textContent=msg;} function appendLog(msg){const b=el('#log'); b.textContent=(b.textContent+"\n"+msg).trim();}
+
+// ---------- Economics ----------
+function valueFitMultiplier(price,w){const gl=Math.max(0,(w.min-price)/w.min), gh=Math.max(0,(price-w.max)/w.max); return clamp(1-(w.alphaLow*gl+w.alphaHigh*gh),0.4,1.1);}
+function promoMultiplier(d,beta){return 1+beta*d;}
+function featuresTotals(ids,cfg){let s=0,a=0; cfg.features.items.forEach(f=>{if(ids.includes(f.id)){s+=f.score;a+=f.addonCost;}}); return {featureMult:1+(clamp(s,0,1)*cfg.features.featureLift), addonCost:a, score:clamp(s,0,1)};}
+function demand(price,cfg,m){return cfg.base.D0 * Math.pow(price/cfg.base.anchorPrice,-cfg.base.elasticity) * m.featureMult * m.promoMult * m.valueFitMult * m.eventMult;}
+function profit(price,units,baseCost,addonCost,fixedCost,upsell){const uc=baseCost+addonCost, um=price-uc, up=upsell.enabled?(upsell.attachRate*upsell.arpu*units):0, fpr=(fixedCost||0)/(CFG.rounds||1); return um*units + up - fpr;}
+function shareSplit(y,cp,pe,fe,cfg){const base=cfg.base.anchorPrice, ya=Math.pow(base/y,cfg.share.gamma)*Math.pow(pe,cfg.share.delta)*Math.pow(fe,cfg.share.zeta), ca=Math.pow(base/cp,cfg.share.gamma), tot=ya+ca; return {your:tot>0?ya/tot:0.5, comp:tot>0?ca/tot:0.5};}
+function positioningScore(p,w,str,bc,cp,ppu){const va=valueFitMultiplier(p,w), mid=(w.min+w.max)/2, prem=(p>=mid&&p<=w.max)?1:0.6; let cons=0.6; const tc=bc*1.2;
+  if(str==='cost'&&Math.abs(p-tc)<=tc*0.03) cons=1;
+  if(str==='competition'&&Math.abs(p-State.competitorPrice)<=State.competitorPrice*0.03) cons=1;
+  if(str==='value'&&p>=w.min&&p<=w.max&&ppu>(0.15*bc)) cons=1;
+  return clamp(100*(0.4*va + 0.3*prem + 0.3*cons)/1.1, 0, 100);
+}
+function currentEventMultiplier(){ if(!State.event) return {demandMult:1,costDelta:0,label:'No event'};
+  if(State.event.type==='demand') return {demandMult:State.event.multiplier,costDelta:0,label:State.event.label};
+  if(State.event.type==='cost') return {demandMult:1,costDelta:State.event.delta,label:State.event.label};
+  return {demandMult:1,costDelta:0,label:'No event'};
+}
+
+// ---------- Plotting (constant axis font size; rotated X ticks; compact labels) ----------
+const PlotStore={}; let ACTIVE_CANVAS='c_demand';
+function plotCurve(canvas,xs,ys,labels){
+  const ctx=canvas.getContext('2d'), DPR=devicePixelRatio||1;
+  const W=canvas.width=canvas.clientWidth*DPR, H=canvas.height=canvas.clientHeight*DPR; ctx.clearRect(0,0,W,H);
+  const mL=72*DPR, mR=24*DPR, mT=28*DPR, mB=64*DPR;
+  const xMin=Math.min(...xs), xMax=Math.max(...xs), yMin=0, yMax=Math.max(...ys)*1.1+1;
+  const px=v=> mL+(W-mL-mR)*(v-xMin)/(xMax-xMin), py=v=> (H-mB)-(H-mT-mB)*(v-yMin)/(yMax-yMin);
+  const grad=ctx.createLinearGradient(0,0,W,0); grad.addColorStop(0,'#22d3ee'); grad.addColorStop(1,'#a78bfa');
+
+  // Grid box
+  ctx.lineWidth=1*DPR; ctx.strokeStyle='#1e2b47'; ctx.strokeRect(mL,mT,W-mL-mR,H-mT-mB);
+
+  // Ticks (axis font fixed at 12px)
+  ctx.fillStyle='#9fb7d0'; ctx.font=`${12*DPR}px system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif`;
+
+  // X ticks (compact + slight rotation)
+  const xTicks=6;
+  for(let i=0;i<=xTicks;i++){
+    const xv=xMin+(i*(xMax-xMin)/xTicks), X=px(xv);
+    ctx.strokeStyle='#263b66'; ctx.beginPath(); ctx.moveTo(X,H-mB); ctx.lineTo(X,mT); ctx.stroke();
+    const txt=fmtPriceCompact(Math.round(xv));
+    ctx.save(); ctx.translate(X, H-mB+26*DPR); ctx.rotate(-Math.PI/8);
+    ctx.fillText(txt, -ctx.measureText(txt).width/2, 0); ctx.restore();
+  }
+
+  // Y ticks (compact money/units)
+  const yTicks=5;
+  for(let i=0;i<=yTicks;i++){
+    const yv=yMin+(i*(yMax-yMin)/yTicks), Y=py(yv);
+    ctx.strokeStyle='#263b66'; ctx.beginPath(); ctx.moveTo(mL,Y); ctx.lineTo(W-mR,Y); ctx.stroke();
+    const txt=labels.yFmt?labels.yFmt(yv):fmtINRCompact(yv);
+    ctx.fillText(txt, 8*DPR, Y+4*DPR);
+  }
+
+  // Axis labels (keep name & size constant)
+  ctx.fillStyle='#cfe3ff';
+  const xLabel=labels.xLabel||'Price (₹)', xlw=ctx.measureText(xLabel).width;
+  ctx.fillText(xLabel, (W - xlw)/2, H - 18*DPR);
+  ctx.save(); ctx.translate(18*DPR, (H - mB + mT)/2); ctx.rotate(-Math.PI/2);
+  ctx.fillText(labels.yLabel || '', 0, 0); ctx.restore();
+
+  // Curve
+  ctx.lineWidth=2*DPR; ctx.strokeStyle=grad; ctx.beginPath();
+  ys.forEach((y,i)=>{ const X=px(xs[i]), Y=py(y); if(i===0)ctx.moveTo(X,Y); else ctx.lineTo(X,Y); }); ctx.stroke();
+
+  return {xMin,xMax,yMin,yMax,px,py};
+}
+
+function drawCurves(prefix){
+  const minP=80000, maxP=160000, step=500, prices=[]; for(let p=minP;p<=maxP;p+=step) prices.push(p);
+  const selected=getSelectedFeatures(prefix);
+  const {featureMult,addonCost}=featuresTotals(selected,CFG);
+  const discountPct=clamp((Number(el(`#${prefix}_discount`)?.value||0))/100,0,CFG.promo.maxDiscount);
+  const promoMult=promoMultiplier(discountPct,CFG.promo.beta);
+  const ev=currentEventMultiplier();
+
+  const units=[], rev=[], prof=[];
+  for(let price=minP; price<=maxP; price+=step){
+    const vfit=valueFitMultiplier(price,CFG.wtp), m={featureMult,promoMult,valueFitMult:vfit,eventMult:ev.demandMult};
+    const u=Math.max(0,demand(price,CFG,m));
+    const p=profit(price,u,CFG.base.baseCost+ev.costDelta,addonCost,CFG.base.fixedCost,CFG.features.upsell);
+    units.push(u); rev.push(u*price); prof.push(p);
+  }
+  PlotStore._data={prices,units,rev,prof};
+  drawActiveCanvas();
+}
+
+function drawActiveCanvas(){
+  const d=PlotStore._data; if(!d) return;
+  const id=ACTIVE_CANVAS, c=el('#'+id);
+  if(id==='c_demand'){
+    const meta=plotCurve(c,d.prices,d.units,{xLabel:'Price (₹)',yLabel:'Units (qty)',yFmt:v=>fmtINRCompact(v)});
+    PlotStore[id]={xs:d.prices,ys:d.units,meta,yLabel:'Units (qty)',yFmt:v=>fmtINRCompact(v)};
+  } else if(id==='c_revenue'){
+    const meta=plotCurve(c,d.prices,d.rev,{xLabel:'Price (₹)',yLabel:'Revenue (₹)',yFmt:v=>fmtINRCompact(v)});
+    PlotStore[id]={xs:d.prices,ys:d.rev,meta,yLabel:'Revenue (₹)',yFmt:v=>fmtINRCompact(v)};
+  } else {
+    const meta=plotCurve(c,d.prices,d.prof,{xLabel:'Price (₹)',yLabel:'Profit (₹)',yFmt:v=>fmtINRCompact(v)});
+    PlotStore[id]={xs:d.prices,ys:d.prof,meta,yLabel:'Profit (₹)',yFmt:v=>fmtINRCompact(v)};
+  }
+}
+
+// ---------- KPIs ----------
+function updateKPIs(o){
+  el('#k_units').textContent=fmtINR(o.units);
+  el('#k_revenue').textContent='₹'+fmtINR(o.revenue);
+  el('#k_profit').textContent='₹'+fmtINR(o.profit);
+  el('#k_share').textContent=isNaN(o.share)?'–':(o.share*100).toFixed(1)+'%';
+  el('#k_pos').textContent=o.positioning.toFixed(0);
+}
+
+// ---------- Tooltips ----------
+function setupTooltip(id){
+  const canvas=el('#'+id), tt=el('#tt');
+  function handler(ev){
+    const s=PlotStore[id]; if(!s) return;
+    const rect=canvas.getBoundingClientRect(), DPR=devicePixelRatio||1;
+    const x=(ev.clientX-rect.left)*DPR;
+    const xRatio=(x-(72*DPR))/(canvas.width-(72*DPR)-(24*DPR));
+    const val=clamp(s.meta.xMin + xRatio*(s.meta.xMax-s.meta.xMin), s.meta.xMin, s.meta.xMax);
+    let idx=0,best=Infinity; for(let i=0;i<s.xs.length;i++){ const d=Math.abs(s.xs[i]-val); if(d<best){best=d; idx=i;} }
+    const price=s.xs[idx], y=s.ys[idx];
+    tt.style.display='block'; tt.style.left=(ev.clientX+12)+'px'; tt.style.top=(ev.clientY+12)+'px';
+    tt.innerHTML=`<b>Price:</b> ₹${fmtINR(price)}<br><b>${s.yLabel}:</b> ${s.yFmt?s.yFmt(y):y}`;
+  }
+  function leave(){ el('#tt').style.display='none'; }
+  canvas.addEventListener('mousemove', handler);
+  canvas.addEventListener('mouseleave', leave);
+}
+
+// ---------- Hard refresh & re-lock on mode toggle ----------
+function refreshAndRelock(){
+  // Relock Mode B
+  State.modeBUnlocked = false;
+  const t = el('#tabB'); if (t){ t.textContent = '🔒 Mode B · Dynamic Sprint'; t.classList.add('locked'); }
+
+  // Reset core state to round 1
+  State.mode = 'A';
+  State.round = 1;
+  State.event = null;
+  State.competitorPrice = CFG.competitor.price;
+  State.lastResult = null;
+
+  // Reset inputs
+  el('#a_price').value = 120000; el('#a_discount').value = 0;
+  els('input[name="a_strategy"]').forEach(r=>r.checked=false);
+  const comp = els('input[name="a_strategy"]').find(r=>r.value==='competition'); if (comp) comp.checked = true;
+  els('#a_features input[type="checkbox"]').forEach(c=>c.checked=false);
+  els('#b_features input[type="checkbox"]').forEach(c=>c.checked=false);
+  el('#b_price').value = 120000; el('#b_discount').value = 0;
+  const bp = el('#b_price_val'); if (bp) bp.textContent = '₹' + fmtINR(120000);
+
+  // UI to Mode A
+  el('#modeA').style.display='block'; el('#modeB').style.display='none';
+  els('.tab').forEach(n=>n.classList.remove('active'));
+  els('.tab[data-tab="modeA"]').forEach(n=>n.classList.add('active'));
+
+  // KPIs & pills
+  updateKPIs({units:0,revenue:0,profit:0,share:NaN,positioning:0});
+  updatePills();
+  log('Game refreshed!');
+
+  // Redraw
+  drawCurves('a');
+}
+
+// ---------- Mode logic (now calls refreshAndRelock on every mode toggle) ----------
+function submitRound(){
+  const price=Number(el('#a_price').value);
+  const discountPct=clamp(Number(el('#a_discount').value)/100,0,CFG.promo.maxDiscount);
+  const strategy=(el('input[name="a_strategy"]:checked')||{}).value||'competition';
+  const selected=getSelectedFeatures('a');
+  const {featureMult,addonCost}=featuresTotals(selected,CFG);
+  const promoMult=promoMultiplier(discountPct,CFG.promo.beta);
+  const ev=currentEventMultiplier();
+  const valueMult=valueFitMultiplier(price,CFG.wtp);
+  const units=Math.max(0,demand(price,CFG,{featureMult,promoMult,valueFitMult:valueMult,eventMult:ev.demandMult}));
+  const revenue=price*units;
+  const unitCost=CFG.base.baseCost+ev.costDelta+addonCost;
+  const totalProfit=profit(price,units,CFG.base.baseCost+ev.costDelta,addonCost,CFG.base.fixedCost,CFG.features.upsell);
+  const profitPerUnit=price-unitCost;
+
+  const {your}=shareSplit(price,State.competitorPrice,promoMult,featureMult,CFG);
+  const positioning=positioningScore(price,CFG.wtp,strategy,CFG.base.baseCost,State.competitorPrice,profitPerUnit);
+
+  State.lastResult={price,units,revenue,profit:totalProfit,share:your,positioning};
+  updateKPIs(State.lastResult);
+  drawCurves('a');
+
+  log(`R${State.round}: Price ₹${fmtINR(price)} | Disc ${Math.round(discountPct*100)}% | Strategy ${strategy}
+Units ${fmtINR(units)}, Rev ₹${fmtINR(revenue)}, Profit ₹${fmtINR(totalProfit)}, Share ${(your*100).toFixed(1)}%, Pos ${positioning.toFixed(0)}`);
+}
+
+function revealReaction(){
+  const price=State.lastResult?.price||Number(el('#a_price').value);
+  let changed=false;
+  if(price <= (1-CFG.competitor.retaliation.undercutPct)*State.competitorPrice){
+    if(State.rng()<CFG.competitor.retaliation.prob){ State.competitorPrice=Math.max(State.competitorPrice*(1-CFG.competitor.retaliation.cutPct),CFG.competitor.floor); changed=true; }
+  } else if(price >= State.competitorPrice*1.08){
+    if(State.rng()<CFG.competitor.raiseProb){ State.competitorPrice=State.competitorPrice*(1+CFG.competitor.raisePct); changed=true; }
+  }
+  updatePills();
+  appendLog(changed?`Competitor reacted. New competitor price ₹${fmtINR(State.competitorPrice)}.`:`Competitor held price at ₹${fmtINR(State.competitorPrice)}.`);
+  State.round=Math.min(CFG.rounds, State.round+1);
+  updatePills();
+}
+
+function addEvent(){
+  if(State.event===null) State.event=CFG.events[0];
+  else if(State.event.id===CFG.events[0].id) State.event=CFG.events[1];
+  else State.event=null;
+  updatePills(); appendLog(`Event: ${State.event?State.event.label:'Cleared events.'}`);
+  if(State.lastResult) submitRound(); else drawCurves(State.mode==='A'?'a':'b');
+}
+
+function resetA(){
+  State.round=1; State.event=null; State.competitorPrice=CFG.competitor.price; State.lastResult=null; updatePills();
+  el('#a_price').value=120000; el('#a_discount').value=0;
+  els('input[name="a_strategy"]').forEach(r=>r.checked=false);
+  els('input[name="a_strategy"]').find(r=>r.value==='competition').checked=true;
+  log('Reset. Configure and Submit Round 1.');
+  updateKPIs({units:0,revenue:0,profit:0,share:NaN,positioning:0});
+  drawCurves('a');
+}
+
+function liveUpdateB(){
+  const price=Number(el('#b_price').value); el('#b_price_val').textContent='₹'+fmtINR(price);
+  const discountPct=clamp(Number(el('#b_discount').value)/100,0,CFG.promo.maxDiscount);
+  const selected=getSelectedFeatures('b');
+  const {featureMult,addonCost}=featuresTotals(selected,CFG);
+  const promoMult=promoMultiplier(discountPct,CFG.promo.beta);
+  const ev=currentEventMultiplier();
+  const valueMult=valueFitMultiplier(price,CFG.wtp);
+
+  const units=Math.max(0,demand(price,CFG,{featureMult,promoMult,valueFitMult:valueMult,eventMult:ev.demandMult}));
+  const revenue=units*price;
+  const totalProfit=profit(price,units,CFG.base.baseCost+ev.costDelta,addonCost,CFG.base.fixedCost,CFG.features.upsell);
+  const {your}=shareSplit(price,State.competitorPrice,promoMult,featureMult,CFG);
+  const positioning=positioningScore(price,CFG.wtp,'value',CFG.base.baseCost,State.competitorPrice,price-(CFG.base.baseCost+addonCost+ev.costDelta));
+
+  updateKPIs({units,revenue,profit:totalProfit,share:your,positioning});
+  drawCurves('b');
+  log(`Dynamic Sprint · Price ₹${fmtINR(price)} | Units ${fmtINR(units)} | Rev ₹${fmtINR(revenue)} | Profit ₹${fmtINR(totalProfit)} | Share ${(your*100).toFixed(1)}% | Pos ${positioning.toFixed(0)}`);
+}
+
+function suggestOptimal(){
+  const objective=el('#b_objective').value; el('#b_hint').textContent='Objective: '+objective[0].toUpperCase()+objective.slice(1);
+  const selected=getSelectedFeatures('b');
+  const {featureMult,addonCost}=featuresTotals(selected,CFG);
+  const discountPct=clamp(Number(el('#b_discount').value)/100,0,CFG.promo.maxDiscount);
+  const promoMult=promoMultiplier(discountPct,CFG.promo.beta);
+  const ev=currentEventMultiplier();
+
+  let bestPrice=120000, bestVal=-Infinity;
+  for(let p=80000; p<=160000; p+=500){
+    const vfit=valueFitMultiplier(p,CFG.wtp);
+    const u=Math.max(0,demand(p,CFG,{featureMult,promoMult,valueFitMult:vfit,eventMult:ev.demandMult}));
+    let val=0;
+    if(objective==='volume') val=u;
+    else if(objective==='revenue') val=u*p;
+    else if(objective==='profit') val=profit(p,u,CFG.base.baseCost+ev.costDelta,addonCost,CFG.base.fixedCost,CFG.features.upsell);
+    else if(objective==='positioning') val=positioningScore(p,CFG.wtp,'value',CFG.base.baseCost,State.competitorPrice,p-(CFG.base.baseCost+addonCost+ev.costDelta));
+    if(val>bestVal){ bestVal=val; bestPrice=p; }
+  }
+  el('#b_price').value=bestPrice; liveUpdateB(); appendLog(` Suggested approximate optimum at ₹${fmtINR(bestPrice)} for ${objective}.`);
+}
+
+// Modified: any attempt to switch mode triggers a hard refresh & re-lock first
+function switchTab(tab){
+  const requestedMode = (tab==='modeA') ? 'A' : 'B';
+  if (requestedMode !== State.mode){
+    refreshAndRelock(); // force reset and relock before switching
+  }
+  if (tab==='modeA'){
+    State.mode='A'; el('#modeA').style.display='block'; el('#modeB').style.display='none';
+  } else {
+    // Gating every time after toggle because we just relocked
+    const entered = prompt('Enter password to unlock Mode B:');
+    if (entered === CFG.gating.password){
+      State.modeBUnlocked = true; const t = el('#tabB'); t.textContent = '🔓 Mode B · Dynamic Sprint'; t.classList.remove('locked');
+      State.mode='B'; el('#modeA').style.display='none'; el('#modeB').style.display='block';
+    } else {
+      const t = el('#tabB'); t.classList.add('shake'); setTimeout(()=>t.classList.remove('shake'), 300);
+      appendLog('Incorrect password. Mode B remains locked.');
+      State.mode='A'; el('#modeA').style.display='block'; el('#modeB').style.display='none';
+    }
+  }
+  els('.tab').forEach(t=>t.classList.remove('active')); els(`.tab[data-tab="${State.mode==='A'?'modeA':'modeB'}"]`).forEach(t=>t.classList.add('active'));
+  drawCurves(State.mode==='A'?'a':'b');
+}
+
+function updatePills(){ el('#a_roundpill').textContent=`Round: ${State.round} / ${CFG.rounds}`;
+  el('#a_compPrice').textContent=`Competitor ₹${fmtINR(State.competitorPrice)}`;
+  el('#a_eventpill').textContent=State.event?State.event.label:'No event';
+}
+function renderFeatureCheckboxes(prefix){
+  const wrap=el(`#${prefix}_features`); wrap.innerHTML='';
+  CFG.features.items.forEach(f=>{ const d=document.createElement('label');
+    d.innerHTML=`<input type="checkbox" value="${f.id}"/> <span>${f.label}</span><span class="pill">Score ${f.score}</span><span class="pill">+₹${fmtINR(f.addonCost)}</span>`;
+    wrap.appendChild(d);
+  });
+}
+function getSelectedFeatures(prefix){ return Array.from(el(`#${prefix}_features`).querySelectorAll('input[type="checkbox"]:checked')).map(x=>x.value); }
+
+function setupChartTabs(){
+  els('.ctab').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      els('.ctab').forEach(b=>b.classList.remove('active')); btn.classList.add('active');
+      const target=btn.dataset.target; ACTIVE_CANVAS=target;
+      els('#chartwrap canvas').forEach(c=> c.style.display = (c.id===target?'block':'none'));
+      drawActiveCanvas(); // draw only when visible
+    });
+  });
+}
+
+// ---------- Init ----------
+function init(){
+  renderFeatureCheckboxes('a'); renderFeatureCheckboxes('b'); updatePills(); log('Ready. Choose inputs and submit.');
+  els('.tab').forEach(t=>t.addEventListener('click',()=>switchTab(t.dataset.tab)));
+  el('#a_submit').addEventListener('click', submitRound);
+  el('#a_react').addEventListener('click', revealReaction);
+  el('#a_event').addEventListener('click', addEvent);
+  el('#a_reset').addEventListener('click', resetA);
+  el('#b_price').addEventListener('input', ()=>{ window.requestAnimationFrame(liveUpdateB); });
+  el('#b_discount').addEventListener('input', ()=>{ window.requestAnimationFrame(liveUpdateB); });
+  el('#b_suggest').addEventListener('click', suggestOptimal);
+  el('#b_reset').addEventListener('click', ()=>{ el('#b_price').value=120000; el('#b_discount').value=0; els('#b_features input[type="checkbox"]').forEach(c=>c.checked=false); liveUpdateB(); });
+
+  const redrawA=debounce(()=>drawCurves('a'),80);
+  el('#a_price').addEventListener('input', redrawA);
+  el('#a_discount').addEventListener('input', redrawA);
+  els('input[name="a_strategy"]').forEach(r=> r.addEventListener('change', redrawA));
+  el('#a_features').addEventListener('change', redrawA);
+  el('#b_features').addEventListener('change', ()=>{ window.requestAnimationFrame(liveUpdateB); });
+
+  setupChartTabs();
+  ['c_demand','c_revenue','c_profit'].forEach(setupTooltip);
+
+  drawCurves('a'); // first draw
+  window.addEventListener('resize', debounce(()=> drawActiveCanvas(), 100));
+}
+window.addEventListener('DOMContentLoaded', init);
+</script>
+</body>
+</html>
